@@ -4,16 +4,17 @@ from tornado.httpclient import AsyncHTTPClient
 from tornado import gen
 import json
 import logging
+from mysecret import api_key
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-api_key = "YOUR KEY HERE"
+#api_key = "YOUR KEY HERE"
 states = {
-            "NSW": "New South Whales", 
-            "QLD": "Queensland", 
-            "ACT": "Australian Capital Territory", 
-            "VIC": "Victoria", 
-            "TAS": "Tasmania", 
+            "NSW": "New South Whales",
+            "QLD": "Queensland",
+            "ACT": "Australian Capital Territory",
+            "VIC": "Victoria",
+            "TAS": "Tasmania",
             "SA": "South Australia"
         }
 api_url = "https://www.googleapis.com/mapsengine/v1/tables/12421761926155747447-06672618218968397709/features?version=published&key={0}&where=State='{1}'"
@@ -28,7 +29,7 @@ class MainHandler(tornado.web.RequestHandler):
 
         clean_response = scrub_it(response)
 
-        self.render("templates/main.html", 
+        self.render("templates/main.html",
                     all_locations=clean_response)
 
 
@@ -46,7 +47,7 @@ class StatesHandler(tornado.web.RequestHandler):
         results = yield output
         results = dict(results)
 
-        self.render("templates/states.html", **results)  
+        self.render("templates/states.html", **results)
 
     @gen.coroutine
     def get_state_data(self, state, client):
@@ -66,7 +67,7 @@ class StateHandler(tornado.web.RequestHandler):
 
         clean_response = scrub_it(response)
 
-        self.render("templates/single_state.html", 
+        self.render("templates/single_state.html",
                     locations=clean_response,
                     name=states[st])
 
