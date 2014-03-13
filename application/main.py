@@ -71,6 +71,12 @@ class StateHandler(tornado.web.RequestHandler):
                     locations=clean_response,
                     name=states[st])
 
+class MapHandler(tornado.web.RequestHandler):
+
+    def get(self):
+        addresses = "131 Monaro Street 2620"
+        # TODO: parse addresses (street # + locality) out of gmaps response
+        self.render("templates/map.html", addresses = addresses)
 
 def scrub_it(response):
     clean = json.loads(response.body.decode("utf-8"))
@@ -83,10 +89,11 @@ def scrub_it(response):
 routes = [
     (r"/", MainHandler),
     (r"/states", StatesHandler),
-    (r"/state/(.*)", StateHandler)
+    (r"/state/(.*)", StateHandler),
+    (r"/map", MapHandler)
 ]
 
 application = tornado.web.Application(routes, debug=True)
 if __name__ == "__main__":
-    application.listen(8000)
+    application.listen(8888)
     tornado.ioloop.IOLoop.instance().start()
