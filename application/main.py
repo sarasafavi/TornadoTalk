@@ -73,21 +73,24 @@ class StateHandler(tornado.web.RequestHandler):
 
 class MapHandler(tornado.web.RequestHandler):
 
+    @gen.coroutine
     def get(self):
         addresses = "131 Monaro Street 2620"
-        # TODO: parse addresses (street # + locality) out of gmaps api response
-        geocoded = [51.5, -0.09]
-        # geocoded = geocode(addresses)
-        # TODO: geocode addresses & build list of lat/lon pairs
-        self.render("templates/map.html", addresses = addresses, latlon
-                = geocoded)
+        # TODO: parse addresses (street # + locality) out of gmaps api result
+        geocoded = gen.Task(self.geocode, addresses)
+        results = yield geocoded
+        logger.info("RESULTS: " + str(results))
+        self.render("templates/map.html", latlon = results)
 
-def geocode(address):
-    url = "http://nominatim.openstreetmap.org/search.php?format=json&q={0}".format(address)
-    response = yield gen.Task(
-        AsyncHTTPClient().fetch,url)
-    geocoded = json.loads(response.body.decode("utf-8"))
-    return([geocoded["lat"],geocoded["lon"]])
+    @gen.coroutine
+    def geocode(self, address):
+        url = "http://nominatim.openstreetmap.org/search.php?limit=1&format=json&q={0}".format(address)
+        response = yield gen.Task(
+            AsyncHTTPClient().fetch,url)
+        geocoded = json.loads(response.body.decode("utf-8"))[0]
+        lat = geocoded['lat']
+        lon = geocoded['lon']
+        return([lat,lon])
 
 def scrub_it(response):
     clean = json.loads(response.body.decode("utf-8"))
