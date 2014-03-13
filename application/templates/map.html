@@ -15,11 +15,11 @@
 			<div id="map"></div>
 		</div>
 <script type ="text/javascript">
-	var map = L.map('map').setView([{{lon}}, {{lat}}], 3);
+	var map = L.map('map').setView([{{lat}}, {{lon}}], 3);
 	L.tileLayer('http://{s}.tiles.mapbox.com/v3/sarasafavi.map-akdgit2h/{z}/{x}/{y}.png', {
 		maxZoom: 18
 	}).addTo(map);
-var marker = L.marker([{{lon}}, {{lat}}]).addTo(map);
+var marker = L.marker([{{lat}}, {{lon}}]).addTo(map);
 </script>
 </body>
 
