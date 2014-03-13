@@ -79,8 +79,8 @@ class MapHandler(tornado.web.RequestHandler):
         # TODO: parse addresses (street # + locality) out of gmaps api result
         geocoded = gen.Task(self.geocode, addresses)
         results = yield geocoded
-        logger.info("RESULTS: " + str(results))
-        self.render("templates/map.html", latlon = results)
+        logger.info("RESULTS: " + str(type(results)))
+        self.render("templates/map.html", lat = results[0], lon = results[1])
 
     @gen.coroutine
     def geocode(self, address):
