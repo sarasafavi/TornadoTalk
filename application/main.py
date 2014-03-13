@@ -75,8 +75,19 @@ class MapHandler(tornado.web.RequestHandler):
 
     def get(self):
         addresses = "131 Monaro Street 2620"
-        # TODO: parse addresses (street # + locality) out of gmaps response
-        self.render("templates/map.html", addresses = addresses)
+        # TODO: parse addresses (street # + locality) out of gmaps api response
+        geocoded = [51.5, -0.09]
+        # geocoded = geocode(addresses)
+        # TODO: geocode addresses & build list of lat/lon pairs
+        self.render("templates/map.html", addresses = addresses, latlon
+                = geocoded)
+
+def geocode(address):
+    url = "http://nominatim.openstreetmap.org/search.php?format=json&q={0}".format(address)
+    response = yield gen.Task(
+        AsyncHTTPClient().fetch,url)
+    geocoded = json.loads(response.body.decode("utf-8"))
+    return([geocoded["lat"],geocoded["lon"]])
 
 def scrub_it(response):
     clean = json.loads(response.body.decode("utf-8"))
@@ -84,6 +95,7 @@ def scrub_it(response):
         return clean["features"]
     else:
         return [clean["error"]]
+
 
 
 routes = [
