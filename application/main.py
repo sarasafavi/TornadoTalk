@@ -4,6 +4,7 @@ from tornado.httpclient import AsyncHTTPClient
 from tornado import gen
 import json
 import logging
+import urllib.parse
 from mysecret import api_key
 
 logging.basicConfig(level=logging.INFO)
@@ -79,18 +80,20 @@ class MapHandler(tornado.web.RequestHandler):
         # TODO: parse addresses (street # + locality) out of gmaps api result
         geocoded = gen.Task(self.geocode, addresses)
         results = yield geocoded
-        logger.info("RESULTS: " + str(type(results)))
+        logger.info("GEOCODED RESULTS: %r", results)
         self.render("templates/map.html", lat = results[0], lon = results[1])
 
     @gen.coroutine
     def geocode(self, address):
-        url = "http://nominatim.openstreetmap.org/search.php?limit=1&format=json&q={0}".format(address)
-        response = yield gen.Task(
-            AsyncHTTPClient().fetch,url)
+        base = "http://nominatim.openstreetmap.org/search.php?"
+        query = urllib.parse.urlencode({"limit":1, "format":"json", "q":address})
+        url = base+query
+        logger.info(url)
+        response = yield gen.Task(AsyncHTTPClient().fetch,url)
         geocoded = json.loads(response.body.decode("utf-8"))[0]
         lat = geocoded['lat']
         lon = geocoded['lon']
-        return([lat,lon])
+        return([lat,lon,geocoded])
 
 def scrub_it(response):
     clean = json.loads(response.body.decode("utf-8"))
@@ -110,5 +113,5 @@ routes = [
 
 application = tornado.web.Application(routes, debug=True)
 if __name__ == "__main__":
-    application.listen(8888)
+    application.listen(8888, address="192.168.1.7")
     tornado.ioloop.IOLoop.instance().start()
