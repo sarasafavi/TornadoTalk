@@ -92,14 +92,16 @@ class MapHandler(tornado.web.RequestHandler):
         base = "https://www.mapquestapi.com/geocoding/v1/batch?"
         query = urllib.parse.urlencode(
                     {"key":urllib.parse.unquote(mapquest_key),
-                    "callback":"renderBatch","json":locations})
+                    "json":locations})
         url = base+query
         logger.info(url)
         response = yield gen.Task(AsyncHTTPClient().fetch,url)
-        geocoded = json.loads(response.body.decode("utf-8"))[0]
-        lat = geocoded['lat']
-        lon = geocoded['lon']
-        return([lat,lon,geocoded])
+        logger.info(response.body)
+        geocoded = json.loads(response.body.decode("utf-8"))
+        latlon = geocoded["results"][0]["locations"][0]["latLng"]
+        lat = latlon['lat']
+        lon = latlon['lng']
+        return([lat,lon])
 
 def scrub_it(response):
     clean = json.loads(response.body.decode("utf-8"))
