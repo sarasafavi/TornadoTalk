@@ -5,11 +5,10 @@ from tornado import gen
 import json
 import logging
 import urllib.parse
-from mysecret import api_key
+from mysecret import gmap_key, mapquest_key
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-#api_key = "YOUR KEY HERE"
 states = {
             "NSW": "New South Whales",
             "QLD": "Queensland",
@@ -24,7 +23,7 @@ api_url = "https://www.googleapis.com/mapsengine/v1/tables/12421761926155747447-
 class MainHandler(tornado.web.RequestHandler):
     @gen.coroutine
     def get(self):
-        url = "https://www.googleapis.com/mapsengine/v1/tables/12421761926155747447-06672618218968397709/features?version=published&key={0}".format(api_key)
+        url = "https://www.googleapis.com/mapsengine/v1/tables/12421761926155747447-06672618218968397709/features?version=published&key={0}".format(gmap_key)
         response = yield gen.Task(
             AsyncHTTPClient().fetch,url)
 
@@ -52,17 +51,16 @@ class StatesHandler(tornado.web.RequestHandler):
 
     @gen.coroutine
     def get_state_data(self, state, client):
-        url = api_url.format(api_key, state)
+        url = api_url.format(gmap_key, state)
         output = yield gen.Task(client.fetch, url)
         logger.info("Got {0}".format(state))
         return (state.lower(), scrub_it(output))
-
 
 class StateHandler(tornado.web.RequestHandler):
     @gen.coroutine
     def get(self, abbv):
         st = abbv.upper()
-        url = "https://www.googleapis.com/mapsengine/v1/tables/12421761926155747447-06672618218968397709/features?version=published&key={0}&where=State='{1}'".format(api_key, st)
+        url = "https://www.googleapis.com/mapsengine/v1/tables/12421761926155747447-06672618218968397709/features?version=published&key={0}&where=State='{1}'".format(gmap_key, st)
         response = yield gen.Task(
             AsyncHTTPClient().fetch,url)
 
@@ -76,17 +74,25 @@ class MapHandler(tornado.web.RequestHandler):
 
     @gen.coroutine
     def get(self):
-        addresses = "131 Monaro Street 2620"
+        addresses = [{"street":"131 Monaro Street 2620"}]
+        loc = {"locations":addresses}
+        locations = json.dumps(loc)
         # TODO: parse addresses (street # + locality) out of gmaps api result
-        geocoded = gen.Task(self.geocode, addresses)
+        geocoded = gen.Task(self.geocode, locations)
         results = yield geocoded
         logger.info("GEOCODED RESULTS: %r", results)
-        self.render("templates/map.html", lat = results[0], lon = results[1])
+        self.render("templates/map.html", lat = results[0], lon = results[1],
+                foo = [1,2,3,4])
 
     @gen.coroutine
-    def geocode(self, address):
-        base = "http://nominatim.openstreetmap.org/search.php?"
-        query = urllib.parse.urlencode({"limit":1, "format":"json", "q":address})
+    def geocode(self, locations):
+        # base = "http://nominatim.openstreetmap.org/search.php?"
+        # query = urllib.parse.urlencode({"limit":1, "format":"json", "q":address})
+        # switch from OSM to mapquest for bulk geocodes
+        base = "https://www.mapquestapi.com/geocoding/v1/batch?"
+        query = urllib.parse.urlencode(
+                    {"key":urllib.parse.unquote(mapquest_key),
+                    "callback":"renderBatch","json":locations})
         url = base+query
         logger.info(url)
         response = yield gen.Task(AsyncHTTPClient().fetch,url)
@@ -113,5 +119,5 @@ routes = [
 
 application = tornado.web.Application(routes, debug=True)
 if __name__ == "__main__":
-    application.listen(8888, address="192.168.1.7")
+    application.listen(8888)
     tornado.ioloop.IOLoop.instance().start()
