@@ -70,6 +70,7 @@ class StateHandler(tornado.web.RequestHandler):
                     locations=clean_response,
                     name=states[st])
 
+
 class MapHandler(tornado.web.RequestHandler):
 
     @gen.coroutine
@@ -77,44 +78,45 @@ class MapHandler(tornado.web.RequestHandler):
         get_addresses = gen.Task(self.get_addresses)
         addresses = yield get_addresses
         logger.info(addresses)
-        # addresses = [{'street': '131 Monaro Street 2620'}, {'street': 'Lithgow Street 2790'}]
-        loc = {"locations":addresses}
+        loc = {"locations": addresses}
         locations = json.dumps(loc)
         geocoded = gen.Task(self.geocode, locations)
         results = yield geocoded
         logger.info("GEOCODED RESULTS: %r", results)
-        self.render("templates/map.html", locations = results)
+        self.render("templates/map.html", locations=results)
+        # nobody should ever do this in the real world
+        # delaying client to geocode dozens of addresses on each request?!
+        # seriously, paint dries faster than this map will render
 
     @gen.coroutine
     def get_addresses(self):
-        base = "https://www.googleapis.com/mapsengine/v1/tables/12421761926155747447-06672618218968397709/features?"
-        query = urllib.parse.urlencode(
-                {"key":gmap_key,
-                 "version":"published"})
-        url = base+query
-        response = yield gen.Task(AsyncHTTPClient().fetch,url)
+        base = ("https://www.googleapis.com/mapsengine/v1/tables/"
+                "12421761926155747447-06672618218968397709/features?")
+        query = urllib.parse.urlencode({
+            "key": gmap_key, "version": "published"})
+        url = base + query
+        response = yield gen.Task(AsyncHTTPClient().fetch, url)
         dhs_locations = json.loads(response.body.decode("utf-8"))
         addresses = []
         count = 0
         for location in dhs_locations["features"]:
-            count +=1
+            count += 1
             street = location["properties"]["Street_add"]
             postcode = location["properties"]["Postcode"]
             address = ' '.join([street, postcode])
-            addresses.append({"street":address})
-            if count >40:
-               break    # tornado times out after ~20 seconds
-                        # anything >50 seems to take MQ >20 seconds to respond
+            addresses.append({"street": address})
+            # HACK: tornado times out with 599 after ~20 seconds
+            # anything >50 seems to take mapquest >20 seconds to respond
+            if count > 40:
+                break
         return addresses
 
     @gen.coroutine
     def geocode(self, locations):
         base = "https://www.mapquestapi.com/geocoding/v1/batch?"
-        query = urllib.parse.urlencode(
-                    {"key":urllib.parse.unquote(mapquest_key),
-                    "json":locations
-                    })
-        url = base+query
+        query = urllib.parse.urlencode({
+            "key": urllib.parse.unquote(mapquest_key), "json": locations})
+        url = base + query
         logger.info(url)
 
         client = AsyncHTTPClient()
@@ -126,10 +128,11 @@ class MapHandler(tornado.web.RequestHandler):
         geocoded = json.loads(decoded)
         locations = []
         for result in geocoded["results"]:
-            loc = result["locations"][0] # just use the first match
+            loc = result["locations"][0]  # just use the first match
             latlon = loc["latLng"]
             locations.append(latlon)
         return(locations)
+
 
 def scrub_it(response):
     clean = json.loads(response.body.decode("utf-8"))
@@ -137,7 +140,6 @@ def scrub_it(response):
         return clean["features"]
     else:
         return [clean["error"]]
-
 
 
 routes = [
