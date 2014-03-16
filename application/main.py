@@ -74,34 +74,62 @@ class MapHandler(tornado.web.RequestHandler):
 
     @gen.coroutine
     def get(self):
-        addresses = [{"street":"131 Monaro Street 2620"}]
+        get_addresses = gen.Task(self.get_addresses)
+        addresses = yield get_addresses
+        logger.info(addresses)
+        # addresses = [{'street': '131 Monaro Street 2620'}, {'street': 'Lithgow Street 2790'}]
         loc = {"locations":addresses}
         locations = json.dumps(loc)
-        # TODO: parse addresses (street # + locality) out of gmaps api result
         geocoded = gen.Task(self.geocode, locations)
         results = yield geocoded
         logger.info("GEOCODED RESULTS: %r", results)
-        self.render("templates/map.html", lat = results[0], lon = results[1],
-                foo = [1,2,3,4])
+        self.render("templates/map.html", locations = results)
+
+    @gen.coroutine
+    def get_addresses(self):
+        base = "https://www.googleapis.com/mapsengine/v1/tables/12421761926155747447-06672618218968397709/features?"
+        query = urllib.parse.urlencode(
+                {"key":gmap_key,
+                 "version":"published"})
+        url = base+query
+        response = yield gen.Task(AsyncHTTPClient().fetch,url)
+        dhs_locations = json.loads(response.body.decode("utf-8"))
+        addresses = []
+        count = 0
+        for location in dhs_locations["features"]:
+            count +=1
+            street = location["properties"]["Street_add"]
+            postcode = location["properties"]["Postcode"]
+            address = ' '.join([street, postcode])
+            addresses.append({"street":address})
+            if count >40:
+               break    # tornado times out after ~20 seconds
+                        # anything >50 seems to take MQ >20 seconds to respond
+        return addresses
 
     @gen.coroutine
     def geocode(self, locations):
-        # base = "http://nominatim.openstreetmap.org/search.php?"
-        # query = urllib.parse.urlencode({"limit":1, "format":"json", "q":address})
-        # switch from OSM to mapquest for bulk geocodes
         base = "https://www.mapquestapi.com/geocoding/v1/batch?"
         query = urllib.parse.urlencode(
                     {"key":urllib.parse.unquote(mapquest_key),
-                    "json":locations})
+                    "json":locations
+                    })
         url = base+query
         logger.info(url)
-        response = yield gen.Task(AsyncHTTPClient().fetch,url)
-        logger.info(response.body)
-        geocoded = json.loads(response.body.decode("utf-8"))
-        latlon = geocoded["results"][0]["locations"][0]["latLng"]
-        lat = latlon['lat']
-        lon = latlon['lng']
-        return([lat,lon])
+
+        client = AsyncHTTPClient()
+        response = yield gen.Task(client.fetch, url)
+        logger.info("code: %s time: %s body: %s",
+                response.code, response.request_time, response.body)
+        body = response.body
+        decoded = body.decode("utf-8")
+        geocoded = json.loads(decoded)
+        locations = []
+        for result in geocoded["results"]:
+            loc = result["locations"][0] # just use the first match
+            latlon = loc["latLng"]
+            locations.append(latlon)
+        return(locations)
 
 def scrub_it(response):
     clean = json.loads(response.body.decode("utf-8"))
